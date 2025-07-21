@@ -1,15 +1,26 @@
-FROM python:3.10-slim
+FROM ubuntu:22.04
 
+# Instalar dependencias
 RUN apt-get update && \
-    apt-get install -y ffmpeg && \
-    apt-get clean
+    apt-get install -y build-essential cmake curl ffmpeg python3 python3-pip
 
-COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
-
-COPY whisper-service/ /app
+# Copiar código
 WORKDIR /app
+COPY . .
 
-EXPOSE 8000
+# Descargar modelo tiny por defecto
+RUN mkdir -p models && \
+    curl -L -o models/ggml-tiny.bin https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-tiny.bin
 
-CMD ["python", "server.py"]
+# Construir whisper.cpp
+RUN make
+
+# Instalar Flask para el servidor HTTP
+RUN pip3 install -r requirements.txt
+
+# Puerto expuesto por el microservicio
+EXPOSE 8080
+
+# Comando de inicio
+CMD ["python3", "server.py"]
+

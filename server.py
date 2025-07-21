@@ -1,19 +1,29 @@
-from fastapi import FastAPI, File, UploadFile
-import whisper
+from flask import Flask, request, jsonify
+import subprocess
+import os
 
-app = FastAPI()
-model = whisper.load_model("base")  # Usa tiny/base/medium/large
-port = int(os.environ.get("PORT", 8000))
+app = Flask(__name__)
 
-@app.post("/transcribe")
-async def transcribe(file: UploadFile = File(...)):
-    contents = await file.read()
-    with open("temp_audio.wav", "wb") as f:
-        f.write(contents)
+@app.route('/transcribe', methods=['POST'])
+def transcribe():
+    if 'file' not in request.files:
+        return jsonify({'error': 'No file'}), 400
 
-    result = model.transcribe("temp_audio.wav")
-    return {"text": result["text"]}
+    audio = request.files['file']
+    audio.save('audio.mp3')
 
-if __name__ == "__main__":
-    import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=port)
+    result = subprocess.run(
+        ['./main', '-m', 'models/ggml-tiny.bin', '-f', 'audio.mp3', '-otxt'],
+        capture_output=True,
+        text=True
+    )
+
+    transcript = ''
+    with open('audio.mp3.txt', 'r') as f:
+        transcript = f.read()
+
+    return jsonify({'text': transcript})
+
+if __name__ == '__main__':
+    app.run(host='0.0.0.0', port=8080)
+
